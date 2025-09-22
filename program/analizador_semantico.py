@@ -38,6 +38,8 @@ class TACInstruction:
             return f"if_true {self.arg1} goto {self.result}"
         elif self.op == "label":
             return f"{self.result}:"
+        elif self.op == "call":  
+            return f"call {self.arg1} {self.arg2}"
         elif self.op == "PushParam":
             return f"PushParam {self.arg1}"
         elif self.op == "LCall":
@@ -477,8 +479,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.emit_tac("=", init_place, None, var_name, line)
         elif ctx.initializer():
             
-            init_text = ctx.initializer().expression().getText().strip()
-            self.emit_tac("=", init_text, None, var_name, line)
+            init_expr = ctx.initializer().expression()
+            if hasattr(init_expr, 'place') and init_expr.place:
+                self.emit_tac("=", init_expr.place, None, var_name, line)
+            else:
+                init_text = init_expr.getText().strip()
+                self.emit_tac("=", init_text, None, var_name, line)
         
         
         if ctx.initializer():
@@ -600,13 +606,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     then_unreachable = self.analyzer.unreachable_code
                     self.pop_reachability_state()
                     
-                    
                     if len(blocks) > 1:
                         self.emit_goto(end_label)
                 
-                
                 self.emit_label(else_label)
-                
                 
                 if len(blocks) > 1:
                     self.analyzer.unreachable_code = current_unreachable
@@ -614,7 +617,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     self.safe_visit(blocks[1])
                     else_unreachable = self.analyzer.unreachable_code
                     self.pop_reachability_state()
-                    
                     
                     self.emit_label(end_label)
                     
@@ -661,10 +663,8 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 self.reset_reachability_in_scope()
                 self.safe_visit(ctx.block())
             
-            
             self.emit_label(continue_label)
             self.emit_goto(start_label)
-            
             
             self.emit_label(end_label)
         
@@ -683,7 +683,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         self.analyzer.symbol_table.enter_scope("do-while", ContextType.LOOP)
         self.analyzer.loop_depth += 1
         
-        
         start_label, end_label, continue_label = self.label_manager.new_loop_labels()
         self.label_manager.push_loop_context(end_label, continue_label)
         
@@ -696,8 +695,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             if ctx.block():
                 self.reset_reachability_in_scope()
                 self.safe_visit(ctx.block())
-            
-            
+             
             self.emit_label(continue_label)
             
             if ctx.expression():
@@ -706,13 +704,11 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     self.analyzer.add_error(line, 0, 
                         f"Condición del do-while debe ser boolean, encontrado: '{condition_type}'")
                 
-                
                 condition_place = self.get_place_from_ctx(ctx.expression())
                 if not condition_place:
                     condition_place = ctx.expression().getText()
                 
                 self.emit_conditional_jump(condition_place, start_label, is_true=True)
-            
             
             self.emit_label(end_label)
         
@@ -731,7 +727,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         self.analyzer.symbol_table.enter_scope("for", ContextType.LOOP)
         self.analyzer.loop_depth += 1
         
-        
         start_label, end_label, continue_label = self.label_manager.new_loop_labels()
         self.label_manager.push_loop_context(end_label, continue_label)
         
@@ -743,11 +738,9 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 self.safe_visit(ctx.variableDeclaration())
             elif ctx.assignment():
                 self.safe_visit(ctx.assignment())
-            
-            
+                       
             self.emit_label(start_label)
-            
-            
+                        
             expressions = ctx.expression()
             if expressions and len(expressions) >= 1:
                 cond_type = self.safe_visit(expressions[0])
@@ -821,29 +814,23 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.analyzer.symbol_table.declare_variable(
                 iter_var, element_type, line, column, False, "auto_generated"
             )
-            
-            
+              
             array_place = self.get_place_from_ctx(ctx.expression())
             if not array_place:
                 array_place = ctx.expression().getText()
             
             index_temp = self.temp_manager.new_temp_from_type_string("integer", "foreach")
-            length_temp = self.temp_manager.new_temp_from_type_string("integer", "foreach")
-            
+            length_temp = self.temp_manager.new_temp_from_type_string("integer", "foreach") 
             
             self.emit_tac("=", "0", None, index_temp)
             
-            
             self.emit_tac("length", array_place, None, length_temp)
             
-            
             self.emit_label(start_label)
-            
             
             condition_temp = self.temp_manager.new_temp_from_type_string("boolean", "foreach")
             self.emit_tac("<", index_temp, length_temp, condition_temp)
             self.emit_conditional_jump(condition_temp, end_label, is_true=False)
-            
             
             self.emit_tac("[]", array_place, index_temp, iter_var)
             
@@ -851,15 +838,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 self.reset_reachability_in_scope()
                 self.safe_visit(ctx.block())
             
-            
             self.emit_label(continue_label)
             increment_temp = self.temp_manager.new_temp_from_type_string("integer", "foreach")
             self.emit_tac("+", index_temp, "1", increment_temp)
             self.emit_tac("=", increment_temp, None, index_temp)
             
-            
             self.emit_goto(start_label)
-            
             
             self.emit_label(end_label)
         
@@ -877,7 +861,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         column = ctx.start.column
         
         blocks = ctx.block()
-        
         
         try_label = self.label_manager.new_label("TRY_")
         catch_label = self.label_manager.new_label("CATCH_")
@@ -939,12 +922,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 if not switch_place:
                     switch_place = ctx.expression().getText()
             
-            
             num_cases = len(ctx.switchCase()) if ctx.switchCase() else 0
             case_labels, default_label, end_label = self.label_manager.new_switch_labels(num_cases)
             
             self.label_manager.push_switch_context(end_label)
-            
             
             if ctx.switchCase():
                 for i, case in enumerate(ctx.switchCase()):
@@ -954,18 +935,15 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         if not case_place:
                             case_place = case.expression().getText()
                         
-                        
                         compare_temp = self.temp_manager.new_temp_from_type_string("boolean", "switch")
                         self.emit_tac("==", switch_place, case_place, compare_temp)
                         self.emit_conditional_jump(compare_temp, case_labels[i], is_true=True)
-            
             
             self.emit_goto(default_label)
             
             current_unreachable = self.analyzer.unreachable_code
             has_default = ctx.defaultCase() is not None
             all_cases_unreachable = True
-            
             
             if ctx.switchCase():
                 for i, case in enumerate(ctx.switchCase()):
@@ -978,7 +956,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     
                     if not case_unreachable:
                         all_cases_unreachable = False
-            
             
             self.emit_label(default_label)
             if ctx.defaultCase():
@@ -1061,7 +1038,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.analyzer.add_error(line, column, 
                 "'continue' solo puede usarse dentro de bucles")
         
-        
         continue_label = self.label_manager.get_current_continue_label()
         if continue_label:
             self.emit_goto(continue_label)
@@ -1093,8 +1069,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             
             if actual_return_type_str == "error":
                 self.mark_unreachable()
-                return None
-            
+                return None 
             
             if expected_return_type == DataType.ARRAY and expected_element_type:
                 expected_full_type = f"{expected_element_type.value}[]"
@@ -1121,7 +1096,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 self.analyzer.return_found = True
                 self.mark_unreachable()
                 return None
-            
             
             if ctx.expression():
                 return_place = self.get_place_from_ctx(ctx.expression())
@@ -1166,7 +1140,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             
             if not success:
                 return None
-            
             
             class_start_label = self.label_manager.new_label(f"CLASS_{class_name}_START_")
             class_end_label = self.label_manager.new_label(f"CLASS_{class_name}_END_")
@@ -1259,8 +1232,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 if expr_type and not self.analyzer.type_checker.is_compatible(expected_type, expr_type):
                     self.analyzer.add_error(line, column, 
                         f"Tipo incompatible: no se puede asignar '{expr_type}' a '{expected_type}'")
-                
-                
+                    
                 expr_place = self.get_place_from_ctx(expressions[0])
                 if expr_place:
                     self.emit_tac("=", expr_place, None, var_name, line)
@@ -1332,13 +1304,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         if ctx.expression():
             expr_type = self.safe_visit(ctx.expression())
             
-            
             expr_place = self.get_place_from_ctx(ctx.expression())
             if expr_place:
-                self.emit_tac("call", "print", expr_place, "_", ctx.start.line)
+                self.emit_tac("call", "print", expr_place, "", ctx.start.line)
             else:
                 expr_value = ctx.expression().getText()
-                self.emit_tac("call", "print", expr_value, "_", ctx.start.line)
+                self.emit_tac("call", "print", expr_value, "", ctx.start.line)  
             
             return expr_type
         return None
@@ -1408,7 +1379,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 )
                 return "error"
             
-            
             condition_place = self.get_place_from_ctx(ctx.logicalOrExpr())
             expr1_place = self.get_place_from_ctx(ctx.expression(0))
             expr2_place = self.get_place_from_ctx(ctx.expression(1))
@@ -1434,7 +1404,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.set_place_to_ctx(ctx, result_temp)
             return expr1_type
         
-        
         place = self.get_place_from_ctx(ctx.logicalOrExpr())
         if place:
             self.set_place_to_ctx(ctx, place)
@@ -1459,7 +1428,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' || '{right_type}'"
                     )
-                
                 
                 if not left_place:
                     left_place = ctx.logicalAndExpr(i-1).getText()
@@ -1493,7 +1461,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' && '{right_type}'"
                     )
-                
                 
                 if not left_place:
                     left_place = ctx.equalityExpr(i-1).getText()
@@ -1529,7 +1496,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         f"Operación inválida: '{left_type}' {operator} '{right_type}'"
                     )
                 
-                
                 if not left_place:
                     left_place = ctx.relationalExpr(i-1).getText()
                 if not right_place:
@@ -1563,8 +1529,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' {operator} '{right_type}'"
                     )
-                
-                
+                             
                 if not left_place:
                     left_place = ctx.additiveExpr(i-1).getText()
                 if not right_place:
@@ -1598,8 +1563,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' {operator} '{right_type}'"
                     )
-                
-                
+                              
                 if not left_place:
                     left_place = ctx.multiplicativeExpr(i-1).getText()
                 if not right_place:
@@ -1625,8 +1589,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 right_place = self.get_place_from_ctx(right_expr)
                 
                 operator = ctx.getChild(2*i - 1).getText()
-                
-                
+                    
                 if operator in ["/", "%"]:
                     txt = right_expr.getText().strip()
                     while txt.startswith('(') and txt.endswith(')'):
@@ -1649,8 +1612,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' {operator} '{right_type}'"
                     )
-                
-                
+                    
                 if not left_place:
                     left_place = ctx.unaryExpr(i-1).getText()
                 if not right_place:
@@ -1683,7 +1645,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     f"Operación unaria inválida: '{operator}' sobre '{operand_type}'"
                 )
             
-            
             if not operand_place:
                 operand_place = ctx.unaryExpr().getText()
             
@@ -1692,8 +1653,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             
             self.set_place_to_ctx(ctx, temp)
             return result_type
-        
-        
+              
         result = self.safe_visit(ctx.primaryExpr())
         place = self.get_place_from_ctx(ctx.primaryExpr())
         if place:
@@ -1726,8 +1686,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         if ctx.Literal():
             literal_text = ctx.Literal().getText()
             literal_type = self.analyzer.type_checker.get_literal_type(literal_text)
-            
-            
+                    
             self.set_place_to_ctx(ctx, literal_text)
             return literal_type
         elif ctx.arrayLiteral():
@@ -1765,8 +1724,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         f"Todos los elementos del array deben ser del mismo tipo. "
                         f"Esperado: '{first_type}', encontrado: '{element_type}'"
                     )
-            
-            
+                     
             temp = self.temp_manager.new_temp_from_type_string("array", self.current_scope_name)
             size = str(len(expressions))
             self.emit_tac("new_array", size, None, temp)
@@ -1791,7 +1749,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         primary_result = self.safe_visit(ctx.primaryAtom())
         
         if not ctx.suffixOp():
-            
             place = self.get_place_from_ctx(ctx.primaryAtom())
             if place:
                 self.set_place_to_ctx(ctx, place)
@@ -1812,37 +1769,46 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         for i, suffix in enumerate(ctx.suffixOp()):
             if hasattr(suffix, 'arguments'):  
                 if current_object_type and last_property_name and current_result == "method":
+                    object_only = current_place.split('.')[0] if '.' in current_place else current_place
                     
-                    current_result = self.validate_method_call(
+                    result_tuple = self.validate_method_call(
                         current_object_type,
                         last_property_name,
                         suffix.arguments() if hasattr(suffix, 'arguments') else None,
                         suffix.start.line,
-                        suffix.start.column
-                    )
+                        suffix.start.column,
+                        object_only
+                    )                   
+                    
+                    if isinstance(result_tuple, tuple) and len(result_tuple) == 2:
+                        current_result, current_place = result_tuple
+                    else:
+                        current_result = result_tuple if result_tuple else "error"
+                        current_place = "error"
+           
                     current_symbol = None
                     current_object_type = None  
                     last_property_name = None
-                    
-                    
-                    result_temp = self.temp_manager.new_temp_from_type_string(current_result, self.current_scope_name)
-                    current_place = result_temp
                 
                 elif primary_identifier and i == 0:  
-                    current_result = self.validate_function_call(
+                    
+                    result_tuple = self.validate_function_call(
                         primary_identifier, 
                         suffix.arguments() if hasattr(suffix, 'arguments') else None,
                         suffix.start.line, 
                         suffix.start.column
                     )
                     
-                    if current_result != "error":
-                        current_symbol = self.analyzer.symbol_table.lookup(primary_identifier)
-                        
-                        
-                        result_temp = self.temp_manager.new_temp_from_type_string(current_result, self.current_scope_name)
-                        current_place = result_temp
+                    if isinstance(result_tuple, tuple) and len(result_tuple) == 2:
+                        current_result, current_place = result_tuple
+                        if current_result != "error":
+                            current_symbol = self.analyzer.symbol_table.lookup(primary_identifier)
+                        else:
+                            current_symbol = None
+                            current_place = "error"
                     else:
+                        
+                        current_result = result_tuple if result_tuple else "error"
                         current_symbol = None
                         current_place = "error"
                 
@@ -1866,7 +1832,6 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 index_result = self.visitIndexExpr(suffix)
                 if index_result == "error":
                     return "error"
-                
                 
                 index_place = self.get_place_from_ctx(suffix.expression())
                 if not index_place:
@@ -1910,10 +1875,8 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         last_property_name = property_name
                         
                         if current_result == "method":
-                            
                             current_place = f"{current_place}.{property_name}"
                         else:
-                            
                             prop_temp = self.temp_manager.new_temp_from_type_string(current_result, self.current_scope_name)
                             self.emit_tac(".", current_place, property_name, prop_temp)
                             current_place = prop_temp
@@ -1935,6 +1898,70 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         
         self.set_place_to_ctx(ctx, current_place)
         return current_result
+
+    def validate_function_call(self, func_name: str, arguments_ctx, line: int, column: int) -> tuple:
+        
+        function_symbol = self.analyzer.symbol_table.lookup(func_name)
+        if not function_symbol or function_symbol.symbol_type != SymbolType.FUNCTION:
+            self.analyzer.add_error(line, column,
+                f"Función '{func_name}' no está declarada")
+            return ("error", "error")
+             
+        expected_params = function_symbol.parameters
+        expected_count = len(expected_params)
+        
+        actual_args = []
+        actual_count = 0
+        
+        if arguments_ctx and arguments_ctx.expression():
+            actual_count = len(arguments_ctx.expression())
+            for expr in arguments_ctx.expression():
+                arg_type = self.safe_visit(expr)
+                actual_args.append(arg_type)
+        
+        if actual_count != expected_count:
+            self.analyzer.add_error(line, column,
+                f"Función '{func_name}' espera {expected_count} argumentos pero recibió {actual_count}")
+            return ("error", "error")
+        
+        
+        for i in range(actual_count):
+            expected_param = expected_params[i]
+            actual_arg_type = actual_args[i]
+                       
+            if expected_param.data_type == DataType.ARRAY and expected_param.array_element_type:
+                expected_type = f"{expected_param.array_element_type.value}[]"
+            else:
+                expected_type = expected_param.data_type.value
+            
+            if not self.analyzer.type_checker.is_compatible(expected_type, actual_arg_type):
+                self.analyzer.add_error(line, column,
+                    f"Argumento {i+1} de función '{func_name}': esperado '{expected_type}', encontrado '{actual_arg_type}'")
+                return ("error", "error")
+        
+        
+        if arguments_ctx and arguments_ctx.expression():
+            for expr in arguments_ctx.expression():
+                arg_place = self.get_place_from_ctx(expr)
+                if not arg_place:
+                    arg_place = expr.getText()
+                self.emit_tac("PushParam", arg_place, None, "", line)
+        
+        
+        return_type = function_symbol.return_type
+        if return_type == DataType.ARRAY and function_symbol.array_element_type:
+            result_type_str = f"{function_symbol.array_element_type.value}[]"
+        else:
+            result_type_str = return_type.value
+        
+        result_temp = self.temp_manager.new_temp_from_type_string(result_type_str, self.current_scope_name)
+         
+        self.emit_tac("LCall", func_name, None, result_temp, line)
+           
+        if actual_count > 0:
+            self.emit_tac("PopParams", str(actual_count), None, "", line)
+        
+        return (result_type_str, result_temp)
 
     def handle_class_property_access(self, class_name: str, property_name: str, 
                 line: int, column: int, is_this: bool = False):
@@ -2056,8 +2083,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 "UNDECLARED_VARIABLE"
             )
             return "error"
-
-        
+      
         self.set_place_to_ctx(ctx, var_name)
 
         if symbol.data_type == DataType.CLASS_TYPE:
@@ -2126,8 +2152,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 if ctx.arguments() and ctx.arguments().expression():
                     self.analyzer.add_error(line, column,
                         f"Clase '{class_name}' no tiene constructor, pero se proporcionaron argumentos")
-                    return "error"
-            
+                    return "error"          
             
             instance_temp = self.temp_manager.new_temp_from_type_string("class", self.current_scope_name)
             
@@ -2137,7 +2162,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     arg_place = self.get_place_from_ctx(expr)
                     if not arg_place:
                         arg_place = expr.getText()
-                    self.emit_tac("param", arg_place, None, "")
+                    self.emit_tac("PushParam", arg_place, None, "")
                 
                 num_args = str(len(ctx.arguments().expression()))
                 self.emit_tac("new", class_name, num_args, instance_temp)
@@ -2160,12 +2185,11 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.analyzer.add_error(line, column,
                 "'this' solo puede usarse dentro de métodos de clase")
             return "error"
-        
-        
+            
         self.set_place_to_ctx(ctx, "this")
         return self.analyzer.current_class
     
-    def validate_method_call(self, object_type: str, method_name: str, arguments_ctx, line: int, column: int) -> str:
+    def validate_method_call(self, object_type: str, method_name: str, arguments_ctx, line: int, column: int, object_place: str = None) -> str:
         def find_method_in_hierarchy(class_name: str, method_name: str, visited: set = None):
             if visited is None:
                 visited = set()
@@ -2225,88 +2249,38 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     f"Argumento {i+1} del método '{method_name}': esperado '{expected_param.data_type.value}', encontrado '{actual_arg_type}'")
                 return "error"
         
-        
-        if arguments_ctx and arguments_ctx.expression():
-            for expr in arguments_ctx.expression():
-                arg_place = self.get_place_from_ctx(expr)
-                if not arg_place:
-                    arg_place = expr.getText()
-                self.emit_tac("PushParam", arg_place, None, "", line)
-
-        result_temp = self.temp_manager.new_temp_from_type_string("unknown", self.current_scope_name)
-        self.emit_tac("LCall", f"{object_type}.{method_name}", None, result_temp, line)
-
-        if actual_count > 0:
-            self.emit_tac("PopParams", str(actual_count), None, "", line)
-        
-        return method_symbol.return_type.value if method_symbol.return_type else "void"
-    
-    def validate_function_call(self, function_name: str, arguments_ctx, line: int, column: int) -> str:
-        function_symbol = self.analyzer.symbol_table.lookup(function_name)
-        if not function_symbol:
-            self.analyzer.add_error(line, column, 
-                f"Función '{function_name}' no está declarada", "UNDECLARED_FUNCTION")
-            return "error"
-        
-        if function_symbol.symbol_type != SymbolType.FUNCTION:
-            self.analyzer.add_error(line, column, 
-                f"'{function_name}' no es una función", "NOT_A_FUNCTION")
-            return "error"
-        
-        expected_params = function_symbol.parameters  
-        expected_count = len(expected_params)
-        
-        actual_args = []
-        actual_count = 0
-        
-        if arguments_ctx and arguments_ctx.expression():
-            actual_count = len(arguments_ctx.expression())
-            for expr in arguments_ctx.expression():
-                arg_type = self.safe_visit(expr)
-                actual_args.append(arg_type)
-        
-        if actual_count != expected_count:
-            expected_names = [f"{p.name}:{p.data_type.value}" for p in expected_params]
-            self.analyzer.add_error(line, column, 
-                f"Función '{function_name}' espera {expected_count} parámetros ({', '.join(expected_names)}) "
-                f"pero recibió {actual_count} argumentos", "WRONG_ARGUMENT_COUNT")
-            return "error"
-        
-        for i in range(actual_count):
-            expected_param = expected_params[i]
-            actual_arg_type = actual_args[i]
-            expected_type = expected_param.data_type.value
-                        
-            if not self.analyzer.type_checker.is_compatible(expected_type, actual_arg_type):
-                self.analyzer.add_error(line, column, 
-                    f"Argumento {i+1} de función '{function_name}': "
-                    f"esperado '{expected_type}' (parámetro '{expected_param.name}'), "
-                    f"encontrado '{actual_arg_type}'", "TYPE_MISMATCH")
-                return "error"
-        
-        
-        if arguments_ctx and arguments_ctx.expression():
-            
-            for expr in arguments_ctx.expression():
-                arg_place = self.get_place_from_ctx(expr)
-                if not arg_place:
-                    arg_place = expr.getText()
-                self.emit_tac("PushParam", arg_place, None, "", line)
-        
-        
-        result_temp = self.temp_manager.new_temp_from_type_string("unknown", self.current_scope_name)
-        self.emit_tac("LCall", function_name, None, result_temp, line)
-        
-        if actual_count > 0:
-            self.emit_tac("PopParams", str(actual_count), None, "", line)
-        
-        
-        self.set_place_to_ctx(arguments_ctx, result_temp)
-        
-        if function_symbol.return_type == DataType.ARRAY and function_symbol.array_element_type:
-            return f"{function_symbol.array_element_type.value}[]"
+        if object_place:
+            self.emit_tac("PushParam", object_place, None, "", line)
+            total_params = actual_count + 1  
         else:
-            return function_symbol.return_type.value
+            total_params = actual_count
+        
+        if arguments_ctx and arguments_ctx.expression():
+            for expr in arguments_ctx.expression():
+                arg_place = self.get_place_from_ctx(expr)
+                if not arg_place:
+                    arg_place = expr.getText()
+                self.emit_tac("PushParam", arg_place, None, "", line)
+
+        result_temp = self.temp_manager.new_temp_from_type_string(method_symbol.return_type.value, self.current_scope_name)
+        
+        actual_class = object_type
+        current_class = object_type
+        while current_class:
+            class_sym = self.analyzer.symbol_table.lookup(current_class)
+            if class_sym and method_name in class_sym.methods:
+                actual_class = current_class
+                break
+            current_class = class_sym.parent_class if class_sym else None
+        
+        self.emit_tac("LCall", f"{actual_class}.{method_name}", None, result_temp, line)
+
+        total_params = actual_count + (1 if object_place else 0)
+        if total_params > 0:
+            self.emit_tac("PopParams", str(total_params), None, "", line)
+         
+        return_type = method_symbol.return_type.value if method_symbol.return_type else "void"
+        return (return_type, result_temp) 
     
     def visitArguments(self, ctx: CompiscriptParser.ArgumentsContext):
         argument_types = []

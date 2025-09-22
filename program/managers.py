@@ -13,19 +13,15 @@ class TempType(Enum):
 class TempManager:
     
     def __init__(self):
-        self.counter = 0
+        self.global_counter = 0
         self.free = []
         self.temp_types: Dict[str, TempType] = {}
         self.temp_scopes: Dict[str, str] = {}  
         self.active_temps: List[str] = []
         
     def new_temp(self, temp_type: Optional[TempType] = None, scope_name: str = "global") -> str:
-        if self.free:
-            temp = self.free.pop()
-        else:
-            self.counter += 1
-            temp = f"t{self.counter}"
-        
+        self.global_counter += 1
+        temp = f"t{self.global_counter}"
         
         if temp_type:
             self.temp_types[temp] = temp_type
@@ -48,9 +44,7 @@ class TempManager:
     def release_temp(self, temp: str) -> None:
         if temp in self.active_temps:
             self.active_temps.remove(temp)
-            self.free.append(temp)
-            
-    
+              
     def get_temp_type(self, temp: str) -> TempType:
         return self.temp_types.get(temp, TempType.UNKNOWN)
     
@@ -197,7 +191,6 @@ class LabelManager:
             ctx_info += ")"
             info.append(ctx_info)
         return info
-
 
 @dataclass
 class ActivationRecord:
