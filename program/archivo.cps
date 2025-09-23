@@ -7,3 +7,4 @@ function toString(nombre: integer): void{
   a = b + c + d;
   b = a * a + b * b;
 }
+

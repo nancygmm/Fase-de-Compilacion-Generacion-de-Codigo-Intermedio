@@ -27,6 +27,20 @@ class ContextType(Enum):
     LOOP = "loop"          
     METHOD = "method"      
 
+def sizeof(dt: DataType) -> int:
+    return {
+        DataType.INTEGER: 4,
+        DataType.BOOLEAN: 1,
+        DataType.STRING: 8,      
+        DataType.ARRAY: 8,       
+        DataType.CLASS_TYPE: 8,  
+        DataType.VOID: 0,
+        DataType.METHOD_TYPE: 0,
+    }.get(dt, 0)
+
+def align(n: int, a: int = 4) -> int:
+    return (n + (a - 1)) & ~(a - 1)
+
 @dataclass
 class Symbol:
     name: str
@@ -49,6 +63,12 @@ class Symbol:
     value: Any = None  
     is_constructor: bool = False              
     access_modifier: str = "public"  
+    offset: int = 0          
+    size_bytes: int = 0
+    address: Optional[int] = None
+    offset: int = 0                 
+    size_bytes: int = 0             
+    address: Optional[int] = None 
     
     def __post_init__(self):
         if self.parameters is None:
@@ -67,7 +87,10 @@ class Scope:
         self.parent_scope = parent_scope
         self.symbols: Dict[str, Symbol] = {}
         self.current_function: Optional[str] = None  
-        self.current_class: Optional[str] = None     
+        self.current_class: Optional[str] = None  
+        self.fp: int = 0            
+        self.param_next_offset: int = 16  
+        self.local_next_offset: int = 0    
         
     def insert(self, symbol: Symbol) -> bool:
         if symbol.name in self.symbols:
@@ -142,6 +165,27 @@ class CompiscriptSymbolTable:
         elif context_type == ContextType.METHOD:
             new_scope.current_function = scope_name
             self.current_function = scope_name
+      
+        if context_type in (ContextType.FUNCTION, ContextType.METHOD):
+            new_scope.fp = 0
+            new_scope.param_next_offset = 16  
+            new_scope.local_next_offset = 0
+
+            func_sym = self.lookup(new_scope.current_function)
+            if func_sym and func_sym.parameters:
+                for p in func_sym.parameters:
+                    p.size_bytes = sizeof(p.data_type)
+                    new_scope.param_next_offset = align(new_scope.param_next_offset, 4)
+                    p.offset = new_scope.param_next_offset     
+                    p.address = None                             
+                    new_scope.param_next_offset += p.size_bytes
+        else:
+            parent = parent_scope
+            if parent:
+                new_scope.fp = parent.fp
+                new_scope.param_next_offset = parent.param_next_offset
+                new_scope.local_next_offset = parent.local_next_offset
+
             
         self.scope_stack.append(new_scope)
         
@@ -393,6 +437,14 @@ class CompiscriptSymbolTable:
             value=initial_value if is_constant else None,
             array_element_type=array_element_type
         )
+        current_scope = self.scope_stack[-1]
+        sym_size = sizeof(data_type)
+        current_scope.local_next_offset = align(current_scope.local_next_offset, 4)
+        current_scope.local_next_offset += sym_size
+
+        symbol.size_bytes = sym_size
+        symbol.offset = -current_scope.local_next_offset   # FP-4, FP-8, ...
+        symbol.address = None
         
         return self.insert(symbol)
         
@@ -519,6 +571,11 @@ class CompiscriptSymbolTable:
     def _print_symbol(self, symbol: Symbol):
         usage_status = "Usado: True" if symbol.is_used else "Usado: False"
         symbol_info = f"  {symbol.name}: {symbol.symbol_type.value} | {symbol.data_type.value} | Línea {symbol.line_number} | {usage_status}"
+        addr_txt = f"0x{symbol.address:X}" if isinstance(symbol.address, int) else str(symbol.address)
+        extra_mem = f" | offset={symbol.offset} | size={symbol.size_bytes}B"
+        if symbol.address is not None:
+            extra_mem += f" | addr={addr_txt}"
+        symbol_info += extra_mem
         
         if symbol.symbol_type == SymbolType.FUNCTION:
             params = [f"{p.name}:{p.data_type.value}" for p in symbol.parameters]

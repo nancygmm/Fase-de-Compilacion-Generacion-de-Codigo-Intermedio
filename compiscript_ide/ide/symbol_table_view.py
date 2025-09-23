@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 
 class SymbolTableView:
-    COLS = ("name", "kind", "type", "scope", "line", "used", "extra")
+    COLS = ("name", "kind", "type", "scope", "line", "used", "offset", "size", "addr", "extra")
 
     def __init__(self, parent):
         self.frame = ttk.Frame(parent)
@@ -21,7 +21,10 @@ class SymbolTableView:
             "scope": "Ámbito",
             "line": "Línea",
             "used": "Usado",
-            "extra": "Extra"
+            "extra": "Extra",
+            "offset": "Offset",
+            "size": "Tamaño (B)",
+            "addr": "Dirección",
         }
         for key, title in headings.items():
             self.tree.heading(key, text=title)
@@ -43,6 +46,10 @@ class SymbolTableView:
         dtype = self._enum_to_str(getattr(sym, "data_type", ""))
         line = getattr(sym, "line_number", "")
         used = "Sí" if getattr(sym, "is_used", False) else "No"
+        offset = getattr(sym, "offset", 0)
+        size = getattr(sym, "size_bytes", 0)
+        addr_val = getattr(sym, "address", None)
+        addr = f"0x{addr_val:X}" if isinstance(addr_val, int) else (addr_val or "")
         extra_parts = []
         params = getattr(sym, "parameters", None)
         if params:
@@ -57,7 +64,7 @@ class SymbolTableView:
         if getattr(sym, "is_constructor", False):
             extra_parts.append("constructor")
         extra = " | ".join(extra_parts)
-        return (name, kind, dtype, scope_name, line, used, extra)
+        return (name, kind, dtype, scope_name, line, used, offset, size, addr, extra)
 
     def load_from_symbol_table(self, symbol_table):
         self.clear()
