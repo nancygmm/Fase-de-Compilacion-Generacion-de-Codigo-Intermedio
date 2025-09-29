@@ -69,6 +69,7 @@ class Symbol:
     offset: int = 0                 
     size_bytes: int = 0             
     address: Optional[int] = None 
+    unique_name: str = None
     
     def __post_init__(self):
         if self.parameters is None:
@@ -435,7 +436,8 @@ class CompiscriptSymbolTable:
             column_number=col,
             is_initialized=initial_value is not None,
             value=initial_value if is_constant else None,
-            array_element_type=array_element_type
+            array_element_type=array_element_type,
+            unique_name=None
         )
         current_scope = self.scope_stack[-1]
         sym_size = sizeof(data_type)
@@ -443,7 +445,7 @@ class CompiscriptSymbolTable:
         current_scope.local_next_offset += sym_size
 
         symbol.size_bytes = sym_size
-        symbol.offset = -current_scope.local_next_offset   # FP-4, FP-8, ...
+        symbol.offset = -current_scope.local_next_offset   
         symbol.address = None
         
         return self.insert(symbol)

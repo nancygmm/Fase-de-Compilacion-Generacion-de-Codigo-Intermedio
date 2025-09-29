@@ -91,7 +91,7 @@ class SemanticAnalyzer:
         self.return_found = False
 
         self.function_ctx_stack: List[tuple] = []
-
+        self.variable_counter = 0
         self.loop_depth = 0
         self.switch_depth = 0 
         
@@ -103,6 +103,11 @@ class SemanticAnalyzer:
     def _initialize_builtin_functions(self):
         self.symbol_table.declare_function(
         "print", DataType.VOID, [("message", DataType.STRING)], 0, 0, None)
+    
+    def get_unique_name(self, var_name: str) -> str:
+        unique_name = f"{var_name}_{self.variable_counter}"
+        self.variable_counter += 1
+        return unique_name
         
     def add_error(self, line: int, column: int, message: str, error_type: str = "SEMANTIC"):
         error = SemanticError(line, column, message, error_type)
@@ -475,16 +480,19 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 return None
 
         
+        unique_name = self.analyzer.get_unique_name(var_name)
+        symbol = self.analyzer.symbol_table.lookup(var_name)
+        symbol.unique_name = unique_name
+        
         if ctx.initializer() and init_place:
-            self.emit_tac("=", init_place, None, var_name, line)
+            self.emit_tac("=", init_place, None, unique_name, line)
         elif ctx.initializer():
-            
             init_expr = ctx.initializer().expression()
             if hasattr(init_expr, 'place') and init_expr.place:
-                self.emit_tac("=", init_expr.place, None, var_name, line)
+                self.emit_tac("=", init_expr.place, None, unique_name, line)
             else:
                 init_text = init_expr.getText().strip()
-                self.emit_tac("=", init_text, None, var_name, line)
+                self.emit_tac("=", init_text, None, unique_name, line)
         
         
         if ctx.initializer():
@@ -569,12 +577,16 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             return None
         
         
+        unique_name = self.analyzer.get_unique_name(const_name)
+        symbol = self.analyzer.symbol_table.lookup(const_name)
+        symbol.unique_name = unique_name
+        
         if init_place:
-            self.emit_tac("=", init_place, None, const_name, line)
+            self.emit_tac("=", init_place, None, unique_name, line)
         else:
             init_text = ctx.expression().getText().strip()
-            self.emit_tac("=", init_text, None, const_name, line)
-        
+            self.emit_tac("=", init_text, None, unique_name, line)
+    
         return declared_type
     
     def visitIfStatement(self, ctx: CompiscriptParser.IfStatementContext):
@@ -1233,12 +1245,14 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                     self.analyzer.add_error(line, column, 
                         f"Tipo incompatible: no se puede asignar '{expr_type}' a '{expected_type}'")
                     
+                unique_name = symbol.unique_name
+        
                 expr_place = self.get_place_from_ctx(expressions[0])
                 if expr_place:
-                    self.emit_tac("=", expr_place, None, var_name, line)
+                    self.emit_tac("=", expr_place, None, unique_name, line)
                 else:
                     expr_value = expressions[0].getText()
-                    self.emit_tac("=", expr_value, None, var_name, line)
+                    self.emit_tac("=", expr_value, None, unique_name, line)
             
             elif identifier_node is not None and len(expressions) == 2:
                 property_name = identifier_node.getText()
@@ -2084,7 +2098,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             )
             return "error"
       
-        self.set_place_to_ctx(ctx, var_name)
+        self.set_place_to_ctx(ctx, symbol.unique_name)
 
         if symbol.data_type == DataType.CLASS_TYPE:
             return symbol.class_type or symbol.value  
