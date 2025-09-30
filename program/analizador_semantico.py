@@ -140,6 +140,15 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         self.tac_code.append(instruction)
         return instruction
     
+    def release_if_temp(self, place: str) -> None:
+        if place and isinstance(place, str) and place.startswith('t'):
+            try:
+                
+                int(place[1:])
+                self.temp_manager.release_temp(place)
+            except (ValueError, IndexError):
+                pass  
+    
     def emit_label(self, label: str) -> TACInstruction:
         return self.emit_tac("label", None, None, label)
     
@@ -486,10 +495,14 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         
         if ctx.initializer() and init_place:
             self.emit_tac("=", init_place, None, unique_name, line)
+            
+            self.release_if_temp(init_place)
         elif ctx.initializer():
             init_expr = ctx.initializer().expression()
             if hasattr(init_expr, 'place') and init_expr.place:
                 self.emit_tac("=", init_expr.place, None, unique_name, line)
+                
+                self.release_if_temp(init_expr.place)
             else:
                 init_text = init_expr.getText().strip()
                 self.emit_tac("=", init_text, None, unique_name, line)
@@ -583,10 +596,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         
         if init_place:
             self.emit_tac("=", init_place, None, unique_name, line)
+            
+            self.release_if_temp(init_place)
         else:
             init_text = ctx.expression().getText().strip()
             self.emit_tac("=", init_text, None, unique_name, line)
-    
+
         return declared_type
     
     def visitIfStatement(self, ctx: CompiscriptParser.IfStatementContext):
@@ -1250,6 +1265,8 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 expr_place = self.get_place_from_ctx(expressions[0])
                 if expr_place:
                     self.emit_tac("=", expr_place, None, unique_name, line)
+                    
+                    self.release_if_temp(expr_place)
                 else:
                     expr_value = expressions[0].getText()
                     self.emit_tac("=", expr_value, None, unique_name, line)
@@ -1280,15 +1297,16 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                             
                             obj_place = self.get_place_from_ctx(expressions[0])
                             value_place = self.get_place_from_ctx(expressions[1])
-                            
+
                             if not obj_place:
                                 obj_place = expressions[0].getText()
                             if not value_place:
                                 value_place = expressions[1].getText()
-                            
-                            
+
                             property_access = f"{obj_place}.{property_name}"
                             self.emit_tac("=", value_place, None, property_access, line)
+                            
+                            self.release_if_temp(value_place)
                 else:
                     self.analyzer.add_error(line, column,
                         f"No se puede acceder a propiedades del tipo '{obj_type}'")
@@ -1415,6 +1433,11 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.emit_tac("=", expr2_place, None, result_temp)
             self.emit_label(end_label)
             
+            
+            self.release_if_temp(condition_place)
+            self.release_if_temp(expr1_place)
+            self.release_if_temp(expr2_place)
+            
             self.set_place_to_ctx(ctx, result_temp)
             return expr1_type
         
@@ -1451,6 +1474,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
                 self.emit_tac(operator, left_place, right_place, temp)
                 
+                
+                self.release_if_temp(left_place)
+                self.release_if_temp(right_place)
+                
                 left_type = result_type
                 left_place = temp
         
@@ -1483,6 +1510,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 
                 temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
                 self.emit_tac(operator, left_place, right_place, temp)
+                
+                
+                self.release_if_temp(left_place)
+                self.release_if_temp(right_place)
                 
                 left_type = result_type
                 left_place = temp
@@ -1518,6 +1549,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
                 self.emit_tac(operator, left_place, right_place, temp)
                 
+                
+                self.release_if_temp(left_place)
+                self.release_if_temp(right_place)
+                
                 left_type = result_type
                 left_place = temp
         
@@ -1543,7 +1578,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' {operator} '{right_type}'"
                     )
-                             
+                            
                 if not left_place:
                     left_place = ctx.additiveExpr(i-1).getText()
                 if not right_place:
@@ -1551,6 +1586,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 
                 temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
                 self.emit_tac(operator, left_place, right_place, temp)
+                
+                
+                self.release_if_temp(left_place)
+                self.release_if_temp(right_place)
                 
                 left_type = result_type
                 left_place = temp
@@ -1577,7 +1616,7 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                         ctx.start.line, ctx.start.column,
                         f"Operación inválida: '{left_type}' {operator} '{right_type}'"
                     )
-                              
+                            
                 if not left_place:
                     left_place = ctx.multiplicativeExpr(i-1).getText()
                 if not right_place:
@@ -1585,6 +1624,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 
                 temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
                 self.emit_tac(operator, left_place, right_place, temp)
+                
+                
+                self.release_if_temp(left_place)
+                self.release_if_temp(right_place)
                 
                 left_type = result_type
                 left_place = temp
@@ -1635,6 +1678,10 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
                 temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
                 self.emit_tac(operator, left_place, right_place, temp)
                 
+                
+                self.release_if_temp(left_place)
+                self.release_if_temp(right_place)
+                
                 left_type = result_type
                 left_place = temp
         
@@ -1665,9 +1712,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             temp = self.temp_manager.new_temp_from_type_string(result_type, self.current_scope_name)
             self.emit_tac(operator, operand_place, None, temp)
             
+            
+            self.release_if_temp(operand_place)
+            
             self.set_place_to_ctx(ctx, temp)
             return result_type
-              
+            
         result = self.safe_visit(ctx.primaryExpr())
         place = self.get_place_from_ctx(ctx.primaryExpr())
         if place:

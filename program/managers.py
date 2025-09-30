@@ -14,20 +14,35 @@ class TempManager:
     
     def __init__(self):
         self.global_counter = 0
-        self.free = []
+        self.free_by_type: Dict[TempType, List[str]] = {
+            TempType.INTEGER: [],
+            TempType.STRING: [],
+            TempType.BOOLEAN: [],
+            TempType.ARRAY: [],
+            TempType.CLASS: [],
+            TempType.UNKNOWN: []
+        }
         self.temp_types: Dict[str, TempType] = {}
-        self.temp_scopes: Dict[str, str] = {}  
+        self.temp_scopes: Dict[str, str] = {}
         self.active_temps: List[str] = []
         
     def new_temp(self, temp_type: Optional[TempType] = None, scope_name: str = "global") -> str:
+        if temp_type is None:
+            temp_type = TempType.UNKNOWN
+        
+        
+        if self.free_by_type[temp_type]:
+            temp = self.free_by_type[temp_type].pop(0)
+            
+            self.temp_scopes[temp] = scope_name
+            self.active_temps.append(temp)
+            return temp
+        
+        
         self.global_counter += 1
         temp = f"t{self.global_counter}"
         
-        if temp_type:
-            self.temp_types[temp] = temp_type
-        else:
-            self.temp_types[temp] = TempType.UNKNOWN
-            
+        self.temp_types[temp] = temp_type
         self.temp_scopes[temp] = scope_name
         self.active_temps.append(temp)
         
@@ -44,7 +59,12 @@ class TempManager:
     def release_temp(self, temp: str) -> None:
         if temp in self.active_temps:
             self.active_temps.remove(temp)
-              
+            
+            
+            temp_type = self.temp_types.get(temp, TempType.UNKNOWN)
+            if temp not in self.free_by_type[temp_type]:
+                self.free_by_type[temp_type].append(temp)
+    
     def get_temp_type(self, temp: str) -> TempType:
         return self.temp_types.get(temp, TempType.UNKNOWN)
     
@@ -63,8 +83,16 @@ class TempManager:
         return released
     
     def get_active_temps(self) -> List[str]:
-
         return self.active_temps.copy()
+    
+    def get_free_temps_count(self) -> Dict[str, int]:
+        return {
+            temp_type.value: len(temps) 
+            for temp_type, temps in self.free_by_type.items()
+        }
+    
+    def get_total_created(self) -> int:
+        return self.global_counter
 
 class LabelType(Enum):
     LOOP_START = "loop_start"
