@@ -443,7 +443,11 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         init_place = None
         if ctx.initializer():
             init_type = self.safe_visit(ctx.initializer())
-            init_place = self.get_place_from_ctx(ctx.initializer().expression())
+            
+            init_place = self.get_place_from_ctx(ctx.initializer())
+            
+            if not init_place and ctx.initializer().expression():
+                init_place = self.get_place_from_ctx(ctx.initializer().expression())
         
         if not declared_type and init_type:
             declared_type = init_type
@@ -495,17 +499,22 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         
         if ctx.initializer() and init_place:
             self.emit_tac("=", init_place, None, unique_name, line)
-            
             self.release_if_temp(init_place)
         elif ctx.initializer():
             init_expr = ctx.initializer().expression()
-            if hasattr(init_expr, 'place') and init_expr.place:
-                self.emit_tac("=", init_expr.place, None, unique_name, line)
-                
-                self.release_if_temp(init_expr.place)
+            
+            place = self.get_place_from_ctx(init_expr)
+            if place:
+                self.emit_tac("=", place, None, unique_name, line)
+                self.release_if_temp(place)
+            
             else:
+                
+                
                 init_text = init_expr.getText().strip()
-                self.emit_tac("=", init_text, None, unique_name, line)
+                
+                if not init_text.startswith('['):
+                    self.emit_tac("=", init_text, None, unique_name, line)
         
         
         if ctx.initializer():
@@ -1366,7 +1375,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         return ctx.getText()
     
     def visitInitializer(self, ctx: CompiscriptParser.InitializerContext):
-        return self.safe_visit(ctx.expression())
+        result = self.safe_visit(ctx.expression())
+        
+        place = self.get_place_from_ctx(ctx.expression())
+        if place:
+            self.set_place_to_ctx(ctx, place)
+        return result
     
     def visitExpression(self, ctx: CompiscriptParser.ExpressionContext):
         result = self.safe_visit(ctx.assignmentExpr())
@@ -1379,12 +1393,16 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
         return result
     
     def visitAssignmentExpr(self, ctx: CompiscriptParser.AssignmentExprContext):
-        return self.visitChildren(ctx)
+        result = self.visitChildren(ctx)
+        
+        if hasattr(ctx, 'exprNoAssign') and ctx.exprNoAssign():
+            place = self.get_place_from_ctx(ctx.exprNoAssign())
+            if place:
+                self.set_place_to_ctx(ctx, place)
+        return result
     
     def visitExprNoAssign(self, ctx: CompiscriptParser.ExprNoAssignContext):
         result = self.safe_visit(ctx.conditionalExpr())
-        
-        
         place = self.get_place_from_ctx(ctx.conditionalExpr())
         if place:
             self.set_place_to_ctx(ctx, place)
@@ -1754,7 +1772,12 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
             self.set_place_to_ctx(ctx, literal_text)
             return literal_type
         elif ctx.arrayLiteral():
-            return self.safe_visit(ctx.arrayLiteral())
+            result = self.safe_visit(ctx.arrayLiteral())
+            
+            place = self.get_place_from_ctx(ctx.arrayLiteral())
+            if place:
+                self.set_place_to_ctx(ctx, place)
+            return result
         elif ctx.getText() == "null":
             self.set_place_to_ctx(ctx, "null")
             return "null"
