@@ -1,0 +1,177 @@
+
+============================================================
+ CÓDIGO TAC GENERADO
+============================================================
+  0: PROGRAM_START:
+  1: FUNC_toString_START_1:
+  2: BeginFunc toString 1
+  3: ActivationRecord toString
+  4: x = LoadParam 0
+  5: SetReturn ""
+  6: goto FUNC_toString_END_2
+  7: FUNC_toString_END_2:
+  8: EndFunc toString
+  9: CLASS_Persona_START_3:
+ 10: FUNC_constructor_START_5:
+ 11: BeginFunc constructor 2
+ 12: ActivationRecord constructor
+ 13: nombre = LoadParam 0
+ 14: edad = LoadParam 1
+ 15: this.nombre = nombre
+ 16: this.edad = edad
+ 17: this.color = "rojo"
+ 18: FUNC_constructor_END_6:
+ 19: EndFunc constructor
+ 20: FUNC_saludar_START_7:
+ 21: BeginFunc saludar 0
+ 22: ActivationRecord saludar
+ 23: t1 = this . nombre
+ 24: t2 = "Hola, mi nombre es " + t1
+ 25: SetReturn t2
+ 26: goto FUNC_saludar_END_8
+ 27: FUNC_saludar_END_8:
+ 28: EndFunc saludar
+ 29: FUNC_incrementarEdad_START_9:
+ 30: BeginFunc incrementarEdad 1
+ 31: ActivationRecord incrementarEdad
+ 32: anos = LoadParam 0
+ 33: t3 = this . edad
+ 34: t4 = t3 + anos
+ 35: this.edad = t4
+ 36: t3 = this . edad
+ 37: PushParam t3
+ 38: t1 = LCall toString
+ 39: PopParams 1
+ 40: t2 = "Ahora tengo " + t1
+ 41: t1 = t2 + " años."
+ 42: SetReturn t1
+ 43: goto FUNC_incrementarEdad_END_10
+ 44: FUNC_incrementarEdad_END_10:
+ 45: EndFunc incrementarEdad
+ 46: CLASS_Persona_END_4:
+ 47: CLASS_Estudiante_START_11:
+ 48: FUNC_constructor_START_13:
+ 49: BeginFunc constructor 3
+ 50: ActivationRecord constructor
+ 51: nombre = LoadParam 0
+ 52: edad = LoadParam 1
+ 53: grado = LoadParam 2
+ 54: this.nombre = nombre
+ 55: this.edad = edad
+ 56: this.color = "rojo"
+ 57: this.grado = grado
+ 58: FUNC_constructor_END_14:
+ 59: EndFunc constructor
+ 60: FUNC_estudiar_START_15:
+ 61: BeginFunc estudiar 0
+ 62: ActivationRecord estudiar
+ 63: t2 = this . nombre
+ 64: t1 = t2 + " está estudiando en "
+ 65: t4 = this . grado
+ 66: PushParam t4
+ 67: t2 = LCall toString
+ 68: PopParams 1
+ 69: t5 = t1 + t2
+ 70: t1 = t5 + " grado."
+ 71: SetReturn t1
+ 72: goto FUNC_estudiar_END_16
+ 73: FUNC_estudiar_END_16:
+ 74: EndFunc estudiar
+ 75: FUNC_promedioNotas_START_17:
+ 76: BeginFunc promedioNotas 3
+ 77: ActivationRecord promedioNotas
+ 78: nota1 = LoadParam 0
+ 79: nota2 = LoadParam 1
+ 80: nota3 = LoadParam 2
+ 81: t3 = nota1 + nota2
+ 82: t4 = t3 + nota3
+ 83: t3 = t4 / 3
+ 84: promedio_4 = t3
+ 85: SetReturn promedio_4
+ 86: goto FUNC_promedioNotas_END_18
+ 87: FUNC_promedioNotas_END_18:
+ 88: EndFunc promedioNotas
+ 89: CLASS_Estudiante_END_12:
+ 90: log_5 = ""
+ 91: nombre_6 = "Erick"
+ 92: PushParam nombre_6
+ 93: PushParam 20
+ 94: PushParam 3
+ 95: t6 = Estudiante new 3
+ 96: juan_7 = t6
+ 97: PushParam juan_7
+ 98: t2 = LCall Persona.saludar
+ 99: PopParams 1
+100: t5 = log_5 + t2
+101: t1 = t5 + "\n"
+102: log_5 = t1
+103: PushParam juan_7
+104: t2 = LCall Estudiante.estudiar
+105: PopParams 1
+106: t5 = log_5 + t2
+107: t1 = t5 + "\n"
+108: log_5 = t1
+109: PushParam juan_7
+110: PushParam 5
+111: t2 = LCall Persona.incrementarEdad
+112: PopParams 2
+113: t5 = log_5 + t2
+114: t1 = t5 + "\n"
+115: log_5 = t1
+116: i_8 = 1
+117: LOOP_START_19:
+118: t7 = i_8 <= 5
+119: if_false t7 goto LOOP_END_20
+120: t4 = i_8 % 2
+121: t8 = t4 == 0
+122: if_false t8 goto IF_ELSE_22
+123: PushParam i_8
+124: t2 = LCall toString
+125: PopParams 1
+126: t5 = log_5 + t2
+127: t1 = t5 + " es par\n"
+128: log_5 = t1
+129: goto IF_END_23
+130: IF_ELSE_22:
+131: PushParam i_8
+132: t2 = LCall toString
+133: PopParams 1
+134: t5 = log_5 + t2
+135: t1 = t5 + " es impar\n"
+136: log_5 = t1
+137: IF_END_23:
+138: t3 = i_8 + 1
+139: i_8 = t3
+140: LOOP_CONTINUE_21:
+141: goto LOOP_START_19
+142: LOOP_END_20:
+143: t4 = juan_7 . edad
+144: t3 = t4 * 2
+145: t4 = 5 - 3
+146: t9 = t4 / 2
+147: t4 = t3 + t9
+148: resultado_9 = t4
+149: t2 = log_5 + "Resultado de la expresión: "
+150: PushParam resultado_9
+151: t5 = LCall toString
+152: PopParams 1
+153: t1 = t2 + t5
+154: t2 = t1 + "\n"
+155: log_5 = t2
+156: prom_10 = 0
+157: PushParam juan_7
+158: PushParam 90
+159: PushParam 85
+160: PushParam 95
+161: t3 = LCall Estudiante.promedioNotas
+162: PopParams 4
+163: prom_10 = t3
+164: t5 = log_5 + "Promedio (entero): "
+165: PushParam prom_10
+166: t1 = LCall toString
+167: PopParams 1
+168: t2 = t5 + t1
+169: t5 = t2 + "\n"
+170: log_5 = t5
+171: PROGRAM_END:
+

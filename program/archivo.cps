@@ -3,15 +3,6 @@ function toString(x: integer): string {
   return "";
 }
 
-let nombre: string = "Erick";
-
-class Ejemplo {
-  function metodoConShadow(): string {
-    let nombre: string = "Local";  
-    return nombre;  
-  }
-}
-
 // --- Clase base ---
 class Persona {
   let nombre: string;
@@ -59,8 +50,8 @@ class Estudiante : Persona {
 // --- Programa principal ---
 let log: string = "";
 
+let nombre: string = "Erick";
 let juan: Estudiante = new Estudiante(nombre, 20, 3);
-let juan2: Estudiante = new Estudiante("Juan", 20, 3);
 
 // "Imprimir" = concatenar al log con saltos de línea
 log = log + juan.saludar() + "\n";

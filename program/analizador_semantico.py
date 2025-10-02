@@ -165,36 +165,31 @@ class CompiscriptSemanticVisitor(CompiscriptVisitor):
     def set_place_to_ctx(self, ctx, place: str) -> None:
         setattr(ctx, 'place', place)
     
-    def print_tac(self):
-        print("\n" + "="*60)
-        print("         CÓDIGO TAC GENERADO")
-        print("="*60)
-        
-        if not self.tac_code:
-            print("No se generó código TAC.")
-            return
-        
-        
-        current_function = "global"
-        for i, instruction in enumerate(self.tac_code):
+    def print_tac(self, filename="codigo_tac.txt"):
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write("\n" + "="*60 + "\n")
+            f.write(" CÓDIGO TAC GENERADO\n")
+            f.write("="*60 + "\n")
             
-            if instruction.op == "BeginFunc":
-                if current_function != "global":
-                    print()  
-                current_function = instruction.result
-                print(f"// Función: {current_function}")
+            if not self.tac_code:
+                f.write("No se generó código TAC.\n")
+                return
             
+            current_function = "global"
+            for i, instruction in enumerate(self.tac_code):
+                if instruction.op == "BeginFunc":
+                    if current_function != "global":
+                        f.write("\n")
+                    current_function = instruction.result
+                
+                f.write(f"{i:3}: {instruction}\n")
+                
+                if instruction.op == "EndFunc":
+                    current_function = "global"
             
-            print(f"{i:3}: {instruction}")
-            
-            
-            if instruction.op == "EndFunc":
-                print(f"// Fin función: {current_function}")
-                current_function = "global"
-        
-        print("="*60)
-        print(f"Total de instrucciones: {len(self.tac_code)}")
-        print("="*60)
+            f.write("="*60 + "\n")
+            f.write(f"Total de instrucciones: {len(self.tac_code)}\n")
+            f.write("="*60 + "\n")
     
     def check_dead_code(self, ctx, statement_type="declaración"):
         if self.analyzer.unreachable_code:
